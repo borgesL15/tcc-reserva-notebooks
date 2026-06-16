@@ -1322,6 +1322,8 @@
             const diasNoMes = new Date(ano, mes + 1, 0).getDate();
             let diaSemanaInicio = primeiroDiaDoMes.getDay();
             let padding = diaSemanaInicio > 0 && diaSemanaInicio < 6 ? diaSemanaInicio - 1 : 0;
+            const hoje = new Date();
+            hoje.setHours(0, 0, 0, 0);
 
             for (let i = 0; i < padding; i++) {
                 const cell = document.createElement('div');
@@ -1388,7 +1390,7 @@
                     divSlot.innerHTML = `${slot.inicio} - ${slot.fim}<br><span style="font-size:0.65rem;">(Sala disponível)</span>`;
                         }
 
-                        if (disponivel > 0) {
+                        if (disponivel > 0 && !(dataAtualLoop < hoje)) {
                             divSlot.onclick = () => {
                                 // Temporariamente define o recurso selecionado para a Sala Técnica para o modal de reserva
                                 const recursoAnterior = estado.recursoSelecionado;
@@ -1396,6 +1398,10 @@
                                 abrirModalReserva(dia, mes, ano, slot.inicio, idUnico, disponivel);
                                 estado.recursoSelecionado = recursoAnterior; // Restaura o recurso selecionado
                             };
+                        } else if (disponivel > 0 && dataAtualLoop < hoje) {
+                            divSlot.style.opacity = '0.5';
+                            divSlot.style.cursor = 'not-allowed';
+                            divSlot.title = "Data passada bloqueada para reserva.";
                         }
                     }
                     slotsContainer.appendChild(divSlot);
@@ -1431,6 +1437,8 @@
             
             const ano = estado.dataAtual.getFullYear();
             const mes = estado.dataAtual.getMonth();
+            const hoje = new Date();
+            hoje.setHours(0, 0, 0, 0);
             
             getEl('current-month').innerText = new Date(ano, mes).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
 
@@ -1457,6 +1465,7 @@
 
             for (let dia = 1; dia <= diasNoMes; dia++) {
                 const dataAtualLoop = new Date(ano, mes, dia);
+                const ehPassado = dataAtualLoop < hoje;
                 const diaDaSemana = dataAtualLoop.getDay();
 
                 // Pula Sábados (6) e Domingos (0)
@@ -1526,8 +1535,12 @@
                             divSlot.innerHTML = `${slot.inicio} - ${slot.fim}<br><span style="font-size:0.65rem;">(${isSalaTec ? 'Sala disponível' : disponivel + ' disp.'})</span>`;
                         }
 
-                        if (disponivel > 0) {
+                        if (disponivel > 0 && !ehPassado) {
                             divSlot.onclick = () => abrirModalReserva(dia, mes, ano, slot.inicio, idUnico, disponivel);
+                        } else if (disponivel > 0 && ehPassado) {
+                            divSlot.style.opacity = '0.5';
+                            divSlot.style.cursor = 'not-allowed';
+                            divSlot.title = "Não é possível reservar datas passadas.";
                         }
                     }
                     slotsContainer.appendChild(divSlot);
