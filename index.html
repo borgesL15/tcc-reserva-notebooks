@@ -798,74 +798,6 @@
         }
     };
 
-    // --- FUNÇÕES DE SINCRONIZAÇÃO COM SUPABASE ---
-    async function loadResources() {
-        const { data, error } = await _supabase.from('recursos').select('*').eq('ativo', true);
-        if (!error && data) {
-            estado.recursos = data.map(r => ({
-                id: r.id, nome: r.nome, total: r.total_equipamentos,
-                hasMouse: r.possui_mouse, icone: r.icone
-            }));
-            renderSidebarRecursos();
-        }
-    }
-
-    async function loadReservasSupabase() {
-        const { data, error } = await _supabase
-            .from('reservas')
-            .select('*, profiles(full_name)');
-
-        if (!error && data) {
-            estado.reservas = new Map();
-            data.forEach(r => {
-                // Reconstroi o ID único tratando a data como string para evitar erros de fuso horário
-                const parts = r.data_reserva.split('-'); // YYYY-MM-DD
-                const dia = parseInt(parts[2]);
-                const mes = parseInt(parts[1]) - 1;
-                const ano = parseInt(parts[0]);
-                const idUnico = `${dia}-${mes}-${ano}-${r.horario_inicio.substring(0,5)}-${r.recurso_id}`;
-
-                estado.reservas.set(idUnico, {
-                    id: r.id, // UUID do Banco
-                    recursoNome: estado.recursos.find(rec => rec.id === r.recurso_id)?.nome,
-                    data: `${parts[2]}/${parts[1]}/${parts[0]}`,
-                    hora: r.horario_inicio.substring(0,5),
-                    turma: r.turma_disciplina,
-                    qtd: r.quantidade,
-                    professor: r.profiles?.full_name || 'Desconhecido'
-                });
-            });
-            renderCalendar();
-            renderTechCalendar();
-        }
-    }
-
-    async function loadAdminData() {
-        // Busca perfis
-        const { data: pData } = await _supabase.from('profiles').select('*');
-        if (pData) estado.listaUsuarios = pData;
-
-        // Busca manutenções
-        const { data: mData } = await _supabase.from('manutencoes').select('*, profiles(full_name)');
-        if (mData) {
-            estado.problemas = mData.map(m => ({
-                id: m.id,
-                equipamento: m.equipamento,
-                descricao: m.descricao,
-                data: new Date(m.data_reporte).toLocaleDateString('pt-BR'),
-                previsao: m.status === 'Resolvido' ? 'Concluído' : 'Em análise',
-                status: m.status,
-                reportadoPor: m.profiles?.full_name || 'Desconhecido'
-            }));
-        }
-
-        // Busca pendências (tabela opcional; se não existir, mantém lista vazia)
-        const { data: penData } = await _supabase.from('pendencias_cadastro').select('*');
-        if (penData) estado.pendencias = penData;
-
-        renderAdminView();
-    }
-
     // --- ESTADO GLOBAL DA APLICAÇÃO ---
     let estado = {
         usuarioLogado: null,
@@ -986,6 +918,66 @@
     // --- LÓGICA DA INTERFACE DO USUÁRIO ---
     document.addEventListener('DOMContentLoaded', () => {
         const getEl = (id) => document.getElementById(id);
+
+        // --- FUNÇÕES DE SINCRONIZAÇÃO COM SUPABASE ---
+        async function loadResources() {
+            const { data, error } = await _supabase.from('recursos').select('*').eq('ativo', true);
+            if (!error && data) {
+                estado.recursos = data.map(r => ({
+                    id: r.id, nome: r.nome, total: r.total_equipamentos,
+                    hasMouse: r.possui_mouse, icone: r.icone
+                }));
+                renderSidebarRecursos();
+            }
+        }
+
+        async function loadReservasSupabase() {
+            const { data, error } = await _supabase
+                .from('reservas')
+                .select('*, profiles(full_name)');
+
+            if (!error && data) {
+                estado.reservas = new Map();
+                data.forEach(r => {
+                    const parts = r.data_reserva.split('-');
+                    const dia = parseInt(parts[2]);
+                    const mes = parseInt(parts[1]) - 1;
+                    const ano = parseInt(parts[0]);
+                    const idUnico = `${dia}-${mes}-${ano}-${r.horario_inicio.substring(0,5)}-${r.recurso_id}`;
+                    estado.reservas.set(idUnico, {
+                        id: r.id,
+                        recursoNome: estado.recursos.find(rec => rec.id === r.recurso_id)?.nome,
+                        data: `${parts[2]}/${parts[1]}/${parts[0]}`,
+                        hora: r.horario_inicio.substring(0,5),
+                        turma: r.turma_disciplina,
+                        qtd: r.quantidade,
+                        professor: r.profiles?.full_name || 'Desconhecido'
+                    });
+                });
+                renderCalendar();
+                renderTechCalendar();
+            }
+        }
+
+        async function loadAdminData() {
+            const { data: pData } = await _supabase.from('profiles').select('*');
+            if (pData) estado.listaUsuarios = pData;
+
+            const { data: mData } = await _supabase.from('manutencoes').select('*, profiles(full_name)');
+            if (mData) {
+                estado.problemas = mData.map(m => ({
+                    id: m.id,
+                    equipamento: m.equipamento,
+                    descricao: m.descricao,
+                    data: new Date(m.data_reporte).toLocaleDateString('pt-BR'),
+                    previsao: m.status === 'Resolvido' ? 'Concluído' : 'Em análise',
+                    status: m.status,
+                    reportadoPor: m.profiles?.full_name || 'Desconhecido'
+                }));
+            }
+
+            renderAdminView();
+        }
 
         // Restaura sessão existente (o client do Supabase persiste o token automaticamente)
         (async () => {
@@ -1430,6 +1422,7 @@
         }
 
         function renderCalendar() {
+            if (!estado.recursoSelecionado) return;
             const grid = getEl('calendar-body');
             const isSalaTec = estado.recursoSelecionado.id === 'sala-tec';
 
