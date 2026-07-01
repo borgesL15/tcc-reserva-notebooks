@@ -1254,20 +1254,22 @@
         // Submit Cadastro Usuário
         getEl('form-cadastro').addEventListener('submit', async (e) => {
             e.preventDefault();
+            const cpfLimpo = getEl('cad-cpf').value.replace(/\D/g, '');
             const { data, error } = await _supabase.auth.signUp({
-                email: getEl('cad-email').value,
+                email: `${cpfLimpo}@escola.com`,
                 password: getEl('cad-senha').value,
                 options: {
                     data: {
                         full_name: getEl('cad-nome').value,
-                        cpf: getEl('cad-cpf').value.replace(/\D/g, ''),
+                        cpf: cpfLimpo,
+                        email: getEl('cad-email').value,
                         role: getEl('cad-role').value
                     }
                 }
             });
 
             if (!error) {
-                alert('Cadastro realizado! Verifique o email para confirmar a conta.');
+                alert('Cadastro realizado com sucesso!');
                 getEl('form-cadastro').reset();
                 getEl('modal-cadastro').style.display = 'none';
                 if (getEl('modal-admin').style.display === 'flex') loadAdminData();
